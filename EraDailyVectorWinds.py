@@ -1,43 +1,46 @@
 import cdsapi
 import xarray as xr
+import numpy as np
 import cartopy.crs as ccrs
 import cartopy.feature as cf
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
-variable = "mslp"  # variable to be downloaded
+variable = "vector wind"  # variable to be downloaded
 year, month, day, hour = 2022, 9, 28, 12  # date to be plotted
-level = 500
+level = 200
 
 # dictionaries for conversions
 eraDict = {"sst": "sea_surface_temperature",
            "mslp": "mean_sea_level_pressure",
            "height": "geopotential",
            "zonal wind": "u_component_of_wind",
+           "meridional wind": "v_component_of_wind",
            "specific humidity": "specific_humidity",
            "temp": "temperature"}
 
-varDict = {"sst": "sst", "mslp": "msl", "height": "z", "zonal wind": "u", "shummid": "q", "temp": "t", "stab": "ss"}
+varDict = {"sst": "sst", "mslp": "msl", "height": "z", "zonal wind": "u", "shummid": "q", "temp": "t", "stab": "ss",
+           "meridional wind": "v"}
 
 monthsDict = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May", 6: "June", 7: "July", 8: "August",
               9: "September", 10: "October", 11: "November", 12: "December"}
 
 
-def downloadDailyData():
+def downloadDailyData(var):
     c = cdsapi.Client()
-    if variable in ['sst', 'mslp', ]:
+    if var in ['sst', 'mslp', ]:
         c.retrieve(
             'reanalysis-era5-single-levels',
             {
                 'product_type': 'reanalysis',
                 'format': 'grib',
-                'variable': eraDict[variable],
+                'variable': eraDict[var],
                 'year': year,
                 'month': month,
                 'day': day,
                 'time': hour,
             },
-            'download.grib')
+            f'{var}.grib')
 
     else:
         c.retrieve(
@@ -46,25 +49,30 @@ def downloadDailyData():
                 'product_type': 'reanalysis',
                 'format': 'grib',
                 'pressure_level': f"{level}",
-                'variable': eraDict[variable],
+                'variable': eraDict[var],
                 'year': year,
                 'month': f"{month}",
                 'day': f"{day}",
                 'time': f"{hour:02}:00",
             },
-            'download.grib')
+            f'{var}.grib')
 
 
-# download and open variable data
-# downloadDailyData()
-varDataset = xr.open_dataset('download.grib', engine='cfgrib')
-varData = varDataset[varDict[variable]]
-varData = varData.coarsen(latitude=2, longitude=2, boundary="trim").mean()
-varData = varData.sel(latitude=slice(60, 0), longitude=slice(240, 320))
-if variable == 'mslp':
-    varData /= 100
-if variable in ['hgtmid', 'hgtup']:
-    varData /= 9.81
+# downloadDailyData("zonal wind")
+# downloadDailyData("meridional wind")
+
+zonalDataset = xr.open_dataset(f'{"zonal wind"}.grib', engine='cfgrib')
+zonalData = zonalDataset[varDict["zonal wind"]]
+zonalData = zonalData.coarsen(latitude=2, longitude=2, boundary="trim").mean()
+zonalData = zonalData.sel(latitude=slice(60, 0), longitude=slice(240, 320))
+
+meridionalDataset = xr.open_dataset(f'{"meridional wind"}.grib', engine='cfgrib')
+meridionalData = meridionalDataset[varDict["meridional wind"]]
+meridionalData = meridionalData.coarsen(latitude=2, longitude=2, boundary="trim").mean()
+meridionalData = meridionalData.sel(latitude=slice(60, 0), longitude=slice(240, 320))
+
+magnitudeData = np.sqrt(zonalData**2 + meridionalData**2)
+print(magnitudeData)
 
 # plot cartopy map and various features
 plt.figure(figsize=(10, 6))
@@ -80,27 +88,32 @@ gl.top_labels = gl.right_labels = False
 gl.xlabel_style = {'size': 7, 'weight': 'bold', 'color': 'gray'}
 gl.ylabel_style = {'size': 7, 'weight': 'bold', 'color': 'gray'}
 
-newcmp = LinearSegmentedColormap.from_list("", [
-    (0 / 20, "#FF8C89"),
-    (5 / 20, "#E12309"),
-    (7.5 / 20, "#FEC024"),
-    (10 / 20, "#FFFFFF"),
-    (12.5 / 20, "#22B2FF"),
-    (15 / 20, "#104CE1"),
-    (20 / 20, "#B885FF")])
-newcmp = newcmp.reversed()
-
-# add data and colormap
-plt.contourf(varData.longitude, varData.latitude, varData, 60, extend='both',
-             transform=ccrs.PlateCarree(), cmap=newcmp)
-cbar = plt.colorbar(pad=0.015, aspect=27, shrink=0.8)
-cbar.ax.tick_params(labelsize=8)
-
 # add titling
-mainTitle = f"ERA5 {level} mb {str(variable).upper()} for {hour:02}Z {monthsDict[month]} {day:02} {year}"
+if variable in ['sst', 'mslp', ]:
+    mainTitle = f"ERA5 {str(variable).upper()} for {hour:02}Z {monthsDict[month]} {day:02} {year}"
+else:
+    mainTitle = f"ERA5 {level} MB {str(variable).upper()} for {hour:02}Z {monthsDict[month]} {day:02} {year}"
 plt.title(mainTitle, fontsize=9, weight='bold', loc='left')
 plt.title("DCAreaWx", fontsize=9, weight='bold', loc='right', color='gray')
 
+newcmp = LinearSegmentedColormap.from_list("", [
+    (0 / 25, "#FFFFFF"),
+    (2 / 25, "#1ED7E7"),
+    (6 / 25, "#19E742"),
+    (9 / 25, "#F5FC4B"),
+    (12 / 25, "#F9A114"),
+    (15 / 25, "#EE1A1A"),
+    (19 / 25, "#E009DC"),
+    (25 / 25, "#FBC7FA")])
+
+# add data and colormap
+plt.contourf(magnitudeData.longitude, magnitudeData.latitude, magnitudeData, 60, extend='both',
+             transform=ccrs.PlateCarree(), cmap=newcmp)
+cbar = plt.colorbar(pad=0.015, aspect=27, shrink=0.8)
+cbar.ax.tick_params(labelsize=8)
+plt.streamplot(zonalData.longitude, zonalData.latitude, zonalData, meridionalData, color='#4B4B4B', linewidth=0.5,
+               transform=ccrs.PlateCarree())
+
 # save and display map
-plt.savefig("daily_plot.png", dpi=300, bbox_inches='tight')
+plt.savefig("vector_wind_plot.png", dpi=300, bbox_inches='tight')
 plt.show()
