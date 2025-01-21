@@ -29,13 +29,21 @@ VortexAvgSteer.py
 
 # Repeated Parameters (Doesn't Include All)
 year, month, day, hour: This specifies the initialization time and date for the forecast. 
+
 hours: This is a list that specifies all the forecast hours that have grb2 data available. It's used to gather the relevant ATCF data.
+
 forecastHour: This selects the forecast hour that is used when relevant in plotting and/or calculations. 
+
 variable: This specifies the variable that will be spatially plotted from the grb2 data.
+
 level: This specifies the pressure level of the variable data that will be plotted, if necessary. If the variable doesn't have levels, it'll be ignored.
+
 members: This specifies the ensemble members that will be used in a given script. Use range(0, 1) for the control and range(0, 31) for all members.
+
 model: This specifies the model configuration that will be plotted. It can take any of the HAFS configurations and also GFS analysis.
+
 clusterType: This specifies the type of storm attribute that is used for clustering or ranking within ensemble sets.
+
 runType: This specifies whether the control or an ensemble mean should be plotted for the basic plotting scripts.
 
 # Dictionary Info
