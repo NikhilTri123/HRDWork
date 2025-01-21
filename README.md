@@ -10,7 +10,7 @@ currently accept will also be listed below. Because many of the adjustable param
 independently outline their purposes.
 
 # Scripts
-This script is a dependacy for every other script, as it contains a list of functions that are repeatedly used by many of them:
+This script is a dependency for every other script, as it contains a list of functions that are repeatedly used by many of them:
 UsefulFunctions.py
 
 These are more basic plotting scripts that specify a particular model and runType:
